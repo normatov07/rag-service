@@ -1,0 +1,11 @@
+.idea
+.git
+.env
+venv/
+static/
+db.sqlite3
+supervisord.log
+supervisord.pid
+__pycache__
+./core
+media/*

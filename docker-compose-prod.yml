@@ -1,0 +1,86 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rag_postgres_prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - rag-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - local
+
+  redis:
+    image: redis:7-alpine
+    container_name: rag_redis_prod
+    restart: unless-stopped
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
+    volumes:
+      - rag-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - local
+
+  app:
+    image: ${IMAGE_NAME}:${IMAGE_TAG:-latest}
+    restart: always
+    container_name: rag_app_prod
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${APP_PORT:-8521}:8000"
+    volumes:
+      - ./src/logs:/app/src/logs
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    models:
+      llm:
+        endpoint_var: RAG_LLM_ENDPOINT
+        model_var: RAG_LLM_MODEL
+      embedding:
+        endpoint_var: RAG_EMBEDDING_ENDPOINT
+        model_var: RAG_EMBEDDING_MODEL
+    networks:
+      - local
+
+models:
+  llm:
+    model: ${RAG_LLM_MODEL:-ai/qwen3:4b}
+    context_size: ${RAG_LLM_CONTEXT_SIZE:-8192}
+  embedding:
+    model: ${RAG_EMBEDDING_MODEL:-ai/baai/bge-small-en-v1.5}
+    context_size: ${RAG_EMBEDDING_CONTEXT_SIZE:-2048}
+    runtime_flags:
+      - "--embeddings"
+
+networks:
+  local:
+    external: true
+    name: '${NETWORK_NAME:-do_utg_network}'
+
+volumes:
+  rag-postgres-data:
+    driver: local
+  rag-redis-data:
+    driver: local
