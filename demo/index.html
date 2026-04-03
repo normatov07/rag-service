@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RAG Service Demo</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #111a2e;
+      --card-2: #0f1729;
+      --text: #e7ecf9;
+      --muted: #a6b0c3;
+      --primary: #6ea8fe;
+      --ok: #3ecf8e;
+      --err: #ff6b6b;
+      --border: #2a395a;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      background: linear-gradient(180deg, #0a1020, #0b1220 35%);
+      color: var(--text);
+    }
+
+    .container {
+      max-width: 1100px;
+      margin: 24px auto;
+      padding: 0 16px 24px;
+    }
+
+    h1, h2 { margin: 0 0 12px; }
+    p { color: var(--muted); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+    }
+
+    .card {
+      grid-column: span 12;
+      background: linear-gradient(180deg, var(--card), var(--card-2));
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+    }
+
+    .col-6 { grid-column: span 6; }
+    .col-4 { grid-column: span 4; }
+    .col-8 { grid-column: span 8; }
+    .col-12 { grid-column: span 12; }
+
+    @media (max-width: 900px) {
+      .col-6, .col-4, .col-8 { grid-column: span 12; }
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      margin-bottom: 6px;
+      color: var(--muted);
+    }
+
+    input, textarea, select {
+      width: 100%;
+      background: #0b1428;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    textarea { min-height: 96px; resize: vertical; }
+
+    .row {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .btn {
+      background: var(--primary);
+      border: none;
+      color: #081325;
+      font-weight: 700;
+      border-radius: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+    }
+
+    .btn.secondary {
+      background: #1f2e4d;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .status {
+      font-size: 13px;
+      margin-top: 10px;
+      white-space: pre-wrap;
+      border-radius: 8px;
+      padding: 10px;
+      border: 1px dashed var(--border);
+      background: #0b1428;
+    }
+
+    .ok { color: var(--ok); }
+    .err { color: var(--err); }
+
+    .help {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    code {
+      background: #0b1428;
+      border: 1px solid var(--border);
+      padding: 1px 6px;
+      border-radius: 6px;
+      color: #cde0ff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>RAG Service Demo</h1>
+    <p>Use this page to test ingestion and semantic search against your API.</p>
+
+    <div class="card">
+      <div class="row">
+        <div class="col-8">
+          <label for="baseUrl">API Base URL</label>
+          <input id="baseUrl" value="http://localhost:8521/digital-office/rag" />
+          <div class="help">Expected endpoints: <code>/ingestions/</code> and <code>/query/</code>.</div>
+        </div>
+        <div class="col-4">
+          <label for="bearerToken">Bearer Token</label>
+          <input id="bearerToken" placeholder="paste token" />
+        </div>
+      </div>
+    </div>
+
+    <div class="grid" style="margin-top:16px;">
+      <section class="card col-12">
+        <h2>1) Embed Data (Ingestion)</h2>
+
+        <div class="row">
+          <div class="col-4">
+            <label for="sourceKind">Input Kind</label>
+            <select id="sourceKind">
+              <option value="text">Text</option>
+              <option value="document">Document</option>
+              <option value="video">Video</option>
+              <option value="audio">Audio (transcript required)</option>
+            </select>
+          </div>
+          <div class="col-4">
+            <label for="tenantId">Tenant ID (optional)</label>
+            <input id="tenantId" placeholder="default from server if empty" />
+          </div>
+          <div class="col-4">
+            <label for="sourceName">Source</label>
+            <input id="sourceName" value="platform" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-6">
+            <label for="uploadFile">File (optional for text/audio transcript mode)</label>
+            <input id="uploadFile" type="file" />
+            <div class="help">Supported by current backend: txt, pdf, docx, mp4. For audio, use transcript in text area.</div>
+          </div>
+          <div class="col-6">
+            <label for="textContent">Text Content / Transcript</label>
+            <textarea id="textContent" placeholder="Enter text, or paste video/audio transcript"></textarea>
+          </div>
+        </div>
+
+        <h3 style="margin:6px 0 10px;">Metadata</h3>
+        <div class="row">
+          <div class="col-4"><label>url</label><input id="metaUrl" /></div>
+          <div class="col-4"><label>url_unique_id</label><input id="metaUrlUniqueId" /></div>
+          <div class="col-4"><label>format</label><input id="metaFormat" placeholder="pdf,mp4,txt..." /></div>
+        </div>
+        <div class="row">
+          <div class="col-4"><label>id</label><input id="metaId" type="number" /></div>
+          <div class="col-4"><label>uuid</label><input id="metaUuid" placeholder="optional UUID" /></div>
+          <div class="col-4"><label>permission</label><input id="metaPermission" /></div>
+        </div>
+        <div class="row">
+          <div class="col-3"><label>department</label><input id="metaDepartment" /></div>
+          <div class="col-3"><label>division</label><input id="metaDivision" /></div>
+          <div class="col-3"><label>user_id</label><input id="metaUserId" type="number" /></div>
+          <div class="col-3"><label>group</label><input id="metaGroup" /></div>
+        </div>
+
+        <div class="row">
+          <div class="col-12">
+            <button id="btnIngest" class="btn">Send Ingestion Request</button>
+            <button id="btnPollJob" class="btn secondary">Poll Job Status</button>
+          </div>
+        </div>
+
+        <div class="status" id="ingestionStatus">Ready.</div>
+      </section>
+
+      <section class="card col-12">
+        <h2>2) Semantic Search / Prompt</h2>
+
+        <div class="row">
+          <div class="col-8">
+            <label for="promptInput">Prompt</label>
+            <textarea id="promptInput" placeholder="Ask what exists in your embedded data"></textarea>
+          </div>
+          <div class="col-4">
+            <label for="topK">top_k</label>
+            <input id="topK" type="number" value="5" />
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="col-3"><label>Filter: department</label><input id="fDepartment" /></div>
+          <div class="col-3"><label>Filter: division</label><input id="fDivision" /></div>
+          <div class="col-3"><label>Filter: group</label><input id="fGroup" /></div>
+          <div class="col-3"><label>Filter: user_id</label><input id="fUserId" type="number" /></div>
+        </div>
+
+        <button id="btnQuery" class="btn">Run Semantic Search</button>
+        <div class="status" id="queryStatus">Ready.</div>
+      </section>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

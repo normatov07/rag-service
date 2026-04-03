@@ -9,6 +9,20 @@ class UnauthorizedException(APIException):
     default_detail = 'Invalid or expired token'
     default_code = 'unauthorized'
 
+
+class AuthenticatedUser(dict):
+    @property
+    def is_authenticated(self):
+        return True
+
+    @property
+    def is_anonymous(self):
+        return False
+
+    @property
+    def pk(self):
+        return self.get('id')
+
 class CustomBearerAuthentication(BaseAuthentication):
     def authenticate(self, request):
         auth_header = request.headers.get('Authorization')
@@ -25,7 +39,9 @@ class CustomBearerAuthentication(BaseAuthentication):
         if not user_data:
             raise UnauthorizedException('Invalid or expired token')
 
+        user = AuthenticatedUser(user_data)
+
         translation.activate(user_data.get('locale'))
         request.LANGUAGE_CODE = translation.get_language()
 
-        return (user_data, token)
+        return (user, token)

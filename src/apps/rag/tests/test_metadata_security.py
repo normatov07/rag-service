@@ -41,3 +41,14 @@ class MetadataSecurityFilterTests(SimpleTestCase):
         self.assertEqual(secured["division"], "DIV-34")
         self.assertEqual(secured["group"], "ops")
         self.assertEqual(secured["user_id"], 12)
+
+    def test_sanitize_removes_null_bytes_from_string_values(self):
+        source = {
+            "department": "DEP\x00-1",
+            "group": "gr\x00oup",
+        }
+
+        sanitized = MetadataSecurityFilter.sanitize(source)
+
+        self.assertEqual(sanitized["department"], "DEP-1")
+        self.assertEqual(sanitized["group"], "group")

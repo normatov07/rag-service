@@ -23,7 +23,7 @@ class ContentExtractionService:
             content = file_obj.read()
             doc = Document(io.BytesIO(content))
             return "\n".join(p.text for p in doc.paragraphs)
-        if name.endswith(".mp4") or source_type == "video":
+        if name.endswith(".mp4") or name.endswith(".mp3") or source_type == "video":
             return (video_transcript or "").strip()
 
         return ""

@@ -9,3 +9,4 @@ supervisord.pid
 __pycache__
 ./core
 media/*
+uv.lock

@@ -1,38 +1,35 @@
 services:
+
   postgres:
     image: postgres:16-alpine
     container_name: rag_postgres
     restart: unless-stopped
+    env_file:
+      - ./src/.env
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME:-rag_service}
+      POSTGRES_USER: ${DB_USER:-rag_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-rag_password}
     ports:
       - "${OUTER_DB_PORT:-5541}:5432"
     volumes:
       - rag-postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - local
 
-  redis:
-    image: redis:7-alpine
-    container_name: rag_redis
+  qdrant:
+    image: qdrant/qdrant:v1.13.2
+    container_name: rag_qdrant
     restart: unless-stopped
-    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD}"]
     ports:
-      - "${REDIS_PORT:-6589}:6379"
+      - "${QDRANT_PORT:-6333}:6333"
     volumes:
-      - rag-redis-data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      - rag-qdrant-data:/qdrant/storage
     networks:
       - local
 
@@ -51,47 +48,21 @@ services:
       - ./src:/app/src
       - ./docker:/app/src/docker:ro
     env_file:
-      - .env
-    environment:
-      DB_HOST: postgres
-      DB_PORT: 5432
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      - ./src/.env
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
-    models:
-      llm:
-        endpoint_var: RAG_LLM_ENDPOINT
-        model_var: RAG_LLM_MODEL
-      embedding:
-        endpoint_var: RAG_EMBEDDING_ENDPOINT
-        model_var: RAG_EMBEDDING_MODEL
+      qdrant:
+        condition: service_started
     networks:
       - local
 
-models:
-  llm:
-    model: ${RAG_LLM_MODEL:-ai/qwen3:4b}
-    context_size: ${RAG_LLM_CONTEXT_SIZE:-8192}
-    runtime_flags:
-      - "--temp"
-      - "${RAG_LLM_TEMPERATURE:-0.2}"
-  embedding:
-    model: ${RAG_EMBEDDING_MODEL:-ai/baai/bge-small-en-v1.5}
-    context_size: ${RAG_EMBEDDING_CONTEXT_SIZE:-2048}
-    runtime_flags:
-      - "--embeddings"
-
 networks:
   local:
-    external: true
-    name: '${NETWORK_NAME:-do_utg_network}'
+    name: '${NETWORK_NAME:-rag_service_network}'
 
 volumes:
   rag-postgres-data:
     driver: local
-  rag-redis-data:
+  rag-qdrant-data:
     driver: local

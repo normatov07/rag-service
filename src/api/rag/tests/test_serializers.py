@@ -43,6 +43,44 @@ class IngestionSerializerTests(SimpleTestCase):
         self.assertTrue(serializer.is_valid(), serializer.errors)
         self.assertEqual(serializer.validated_data["file_format"], "txt")
 
+    def test_mp3_file_ingestion_accepts_transcript(self):
+        file_obj = SimpleUploadedFile("audio.mp3", b"ID3", content_type="audio/mpeg")
+        serializer = IngestionCreateSerializer(
+            data={
+                "source_type": "file",
+                "file": file_obj,
+                "video_transcript": "meeting notes transcript",
+            }
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["file_format"], "mp3")
+        self.assertEqual(serializer.validated_data["text_content"], "meeting notes transcript")
+
+    def test_mp3_file_ingestion_requires_transcript_when_text_not_provided(self):
+        file_obj = SimpleUploadedFile("audio.mp3", b"ID3", content_type="audio/mpeg")
+        serializer = IngestionCreateSerializer(
+            data={
+                "source_type": "file",
+                "file": file_obj,
+            }
+        )
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("video_transcript", serializer.errors)
+
+    def test_ingestion_strips_null_bytes_from_text_and_metadata(self):
+        serializer = IngestionCreateSerializer(
+            data={
+                "source_type": "text",
+                "text_content": "Hello\x00 world",
+                "metadata": {
+                    "department": "DEP\x00-1",
+                },
+            }
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["text_content"], "Hello world")
+        self.assertEqual(serializer.validated_data["metadata"], {"department": "DEP-1"})
+
 
 @override_settings(RAG_DEFAULT_TENANT_ID="default-tenant")
 class QuerySerializerTests(SimpleTestCase):

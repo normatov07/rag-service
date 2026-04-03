@@ -15,16 +15,36 @@ class RetrievalService:
 
     def retrieve(self, *, tenant_id: str, prompt: str, filters: dict, user: dict, top_k: int):
         collection_name = CollectionService.build_collection_name(tenant_id)
-        query_vector = self.embedding.embed_query(prompt)
+        collection_vector_size = self.qdrant.get_collection_vector_size(collection_name)
+        if collection_vector_size is None:
+            return []
+
+        target_dimension = settings.RAG_EMBEDDING_DIMENSION
+        if collection_vector_size != target_dimension:
+            raise ValueError(
+                f"Collection '{collection_name}' dimension={collection_vector_size} does not match "
+                f"configured RAG_EMBEDDING_DIMENSION={target_dimension}."
+            )
+
+        query_vector = self.embedding.embed_query(
+            prompt,
+            output_dimensionality=target_dimension,
+        )
 
         metadata_filter = MetadataSecurityFilter.sanitize(filters)
         metadata_filter["tenant_id"] = tenant_id
-        metadata_filter = MetadataSecurityFilter.with_user_scope(metadata_filter, user)
 
         safe_top_k = max(1, min(top_k or settings.RAG_TOP_K, settings.RAG_MAX_TOP_K))
-        return self.qdrant.search(
+        hits = self.qdrant.search(
             collection_name=collection_name,
             query_vector=query_vector,
-            limit=safe_top_k,
+            limit=max(safe_top_k * 4, safe_top_k),
             metadata_filter=metadata_filter,
         )
+
+        allowed_hits = [
+            hit
+            for hit in hits
+            if MetadataSecurityFilter.is_payload_allowed_for_user(getattr(hit, "payload", {}), user)
+        ]
+        return allowed_hits[:safe_top_k]

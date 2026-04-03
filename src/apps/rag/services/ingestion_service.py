@@ -4,6 +4,7 @@ import hashlib
 from dataclasses import dataclass
 from uuid import uuid4
 
+from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from qdrant_client.http.models import PointStruct
@@ -44,13 +45,24 @@ class IngestionService:
 
     @staticmethod
     def create_job(payload: dict) -> IngestionJob:
+        sanitized_payload = IngestionService._sanitize_payload(payload)
         return IngestionJob.objects.create(
-            tenant_id=payload["tenant_id"],
-            source_type=payload["source_type"],
-            payload=payload,
-            embedding_model=payload["embedding_model"],
-            embedding_model_version=payload["embedding_model_version"],
+            tenant_id=sanitized_payload["tenant_id"],
+            source_type=sanitized_payload["source_type"],
+            payload=sanitized_payload,
+            embedding_model=sanitized_payload["embedding_model"],
+            embedding_model_version=sanitized_payload["embedding_model_version"],
         )
+
+    @staticmethod
+    def _sanitize_payload(value):
+        if isinstance(value, str):
+            return value.replace("\x00", "")
+        if isinstance(value, list):
+            return [IngestionService._sanitize_payload(item) for item in value]
+        if isinstance(value, dict):
+            return {k: IngestionService._sanitize_payload(v) for k, v in value.items()}
+        return value
 
     @transaction.atomic
     def process_job(self, job: IngestionJob) -> IngestionJob:
@@ -85,12 +97,12 @@ class IngestionService:
         )
         metadata = {k: v for k, v in metadata.items() if v not in (None, "")}
 
-        content_text = (payload.get("text_content") or "").strip()
+        content_text = (self._sanitize_payload(payload.get("text_content")) or "").strip()
         if payload["source_type"] == "video":
             job.stage = IngestionJob.Stages.TRANSCRIBING
             job.progress_pct = 20
             job.save(update_fields=["stage", "progress_pct", "updated_at"])
-            content_text = (payload.get("video_transcript") or "").strip()
+            content_text = (self._sanitize_payload(payload.get("video_transcript")) or "").strip()
 
         if not content_text:
             raise ValueError("No extractable content was provided. For video ingestion, provide video_transcript.")
@@ -112,8 +124,16 @@ class IngestionService:
         job.progress_pct = 55
         job.save(update_fields=["stage", "progress_pct", "updated_at"])
 
-        vectors = self.embedding.embed_texts(chunks)
+        target_dimension = settings.RAG_EMBEDDING_DIMENSION
+        vectors = self.embedding.embed_texts(
+            chunks,
+            output_dimensionality=target_dimension,
+        )
         vector_size = len(vectors[0])
+        if vector_size != target_dimension:
+            raise ValueError(
+                f"Embedding dimension mismatch: configured={target_dimension}, got={vector_size}."
+            )
         self.qdrant.ensure_collection(collection_name=collection_name, vector_size=vector_size)
 
         embedding_model, embedding_model_version = self.embedding.active_model()
@@ -144,7 +164,7 @@ class IngestionService:
         chunk_models: list[RagChunk] = []
 
         for idx, chunk in enumerate(chunks):
-            vector_id = f"{tenant_id}-{doc.id}-{idx}-{uuid4().hex[:8]}"
+            vector_id = str(uuid4())
             chunk_payload = {
                 **metadata,
                 "document_id": doc.id,

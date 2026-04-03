@@ -7,9 +7,9 @@ This module provides reusable Retrieval-Augmented Generation (RAG) capabilities 
 - `apps.rag`: domain models, ingestion/retrieval/generation services, qdrant repository, celery tasks.
 - `api.rag`: DRF endpoints, serializers, validators.
 - Vector store: Qdrant Cloud API.
-- Models: Docker Compose Model Runner bindings
-  - LLM: `RAG_LLM_MODEL` (default `ai/qwen3:4b`)
-  - Embedding: `RAG_EMBEDDING_MODEL` (default `ai/baai/bge-small-en-v1.5`)
+- Models: Google Gemini API
+  - LLM: `gemini-2.5-flash`
+  - Embedding: `gemini-embedding-001`
 
 ## Multi-Tenant Strategy
 - Collection per tenant, resolved by: `RAG_VECTOR_COLLECTION_PREFIX + tenant_id`.

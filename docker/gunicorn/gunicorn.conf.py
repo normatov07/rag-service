@@ -12,7 +12,7 @@ backlog = 2048
 workers = multiprocessing.cpu_count() * 2 + 2
 worker_class = "sync"
 worker_connections = 1000
-timeout = 50
+timeout = int(os.getenv("GUNICORN_TIMEOUT", "120"))
 keepalive = 5
 
 # Graceful shutdown

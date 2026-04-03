@@ -297,15 +297,15 @@ RAG_VECTOR_COLLECTION_PREFIX = os.getenv('RAG_VECTOR_COLLECTION_PREFIX', 'rag')
 RAG_QDRANT_URL = os.getenv('RAG_QDRANT_URL', '')
 RAG_QDRANT_API_KEY = os.getenv('RAG_QDRANT_API_KEY', '')
 
-RAG_LLM_API_KEY = os.getenv('RAG_LLM_API_KEY', 'unused')
-RAG_LLM_BASE_URL = os.getenv('RAG_LLM_BASE_URL', os.getenv('RAG_LLM_ENDPOINT', 'http://localhost:12434/engines/llama.cpp/v1'))
-RAG_LLM_MODEL = os.getenv('RAG_LLM_MODEL', 'ai/qwen3:4b')
+GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY', '')
+
+RAG_LLM_MODEL = os.getenv('RAG_LLM_MODEL', 'gemini-2.5-flash')
 RAG_LLM_TEMPERATURE = float(os.getenv('RAG_LLM_TEMPERATURE', '0.2'))
 RAG_LLM_MAX_TOKENS = int(os.getenv('RAG_LLM_MAX_TOKENS', '1024'))
 
-RAG_EMBEDDING_BASE_URL = os.getenv('RAG_EMBEDDING_BASE_URL', os.getenv('RAG_EMBEDDING_ENDPOINT', 'http://localhost:12434/engines/llama.cpp/v1'))
-RAG_EMBEDDING_MODEL = os.getenv('RAG_EMBEDDING_MODEL', 'ai/baai/bge-small-en-v1.5')
+RAG_EMBEDDING_MODEL = os.getenv('RAG_EMBEDDING_MODEL', 'gemini-embedding-001')
 RAG_EMBEDDING_MODEL_VERSION = os.getenv('RAG_EMBEDDING_MODEL_VERSION', 'latest')
+RAG_EMBEDDING_DIMENSION = int(os.getenv('RAG_EMBEDDING_DIMENSION', '1024'))
 
 RAG_CHUNK_SIZE = int(os.getenv('RAG_CHUNK_SIZE', '900'))
 RAG_CHUNK_OVERLAP = int(os.getenv('RAG_CHUNK_OVERLAP', '180'))

@@ -31,11 +31,18 @@ class IngestionCreateSerializer(serializers.Serializer):
     user_id = serializers.IntegerField(required=False)
     group = serializers.CharField(required=False, allow_blank=True)
 
+    @staticmethod
+    def _strip_null_bytes(value: str | None) -> str:
+        return (value or "").replace("\x00", "")
+
     def validate(self, attrs):
         source_type = attrs["source_type"]
         file_obj = attrs.get("file")
-        text_content = (attrs.get("text_content") or "").strip()
-        video_transcript = (attrs.get("video_transcript") or "").strip()
+        text_content = self._strip_null_bytes(attrs.get("text_content")).strip()
+        video_transcript = self._strip_null_bytes(attrs.get("video_transcript")).strip()
+
+        attrs["text_content"] = self._strip_null_bytes(attrs.get("text_content"))
+        attrs["video_transcript"] = self._strip_null_bytes(attrs.get("video_transcript"))
 
         if source_type == "text" and not text_content:
             raise serializers.ValidationError({"text_content": "text_content is required for text ingestion."})
@@ -60,7 +67,20 @@ class IngestionCreateSerializer(serializers.Serializer):
                 source_type=source_type,
                 video_transcript=video_transcript,
             )
-            attrs["text_content"] = extracted
+            extracted_text = self._strip_null_bytes(extracted)
+            attrs["text_content"] = extracted_text
+
+            file_name = (getattr(file_obj, "name", "") or "").lower()
+            is_media = file_name.endswith(".mp4") or file_name.endswith(".mp3") or source_type == "video"
+            if is_media and not extracted_text.strip():
+                raise serializers.ValidationError(
+                    {
+                        "video_transcript": (
+                            "Transcript is required for media uploads (mp4/mp3). "
+                            "Provide video_transcript or text_content."
+                        )
+                    }
+                )
 
         attrs["embedding_model"] = settings.RAG_EMBEDDING_MODEL
         attrs["embedding_model_version"] = settings.RAG_EMBEDDING_MODEL_VERSION
